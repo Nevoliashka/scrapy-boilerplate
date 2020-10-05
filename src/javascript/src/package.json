@@ -43,6 +43,7 @@
     "eslint": "^7.2.0",
     "puppeteer-extra-plugin-repl": "^2.2.7",
     "standard": "^14.3.4",
-    "utf-8-validate": "^5.0.2"
+    "utf-8-validate": "^5.0.2",
+    "@types/request-promise-native": "^1.0.17"
   }
 }
