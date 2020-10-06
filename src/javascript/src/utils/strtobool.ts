@@ -1,10 +1,4 @@
-/**
- * Converts a string to boolean.
- *
- * @param {String} str
- * @returns {boolean}
- */
-export default function strtobool(str: string): boolean {
+export default function strtobool(str: string | undefined | null): boolean {
     if (!str) {
         return false;
     }

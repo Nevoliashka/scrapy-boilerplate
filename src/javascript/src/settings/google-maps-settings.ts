@@ -1,4 +1,5 @@
 import { Settings } from "./settings";
+import strtobool from "../utils/strtobool";
 
 
 export class GoogleMapsSettings extends Settings {
@@ -7,7 +8,7 @@ export class GoogleMapsSettings extends Settings {
 
     constructor() {
         super();
-        this.isPaginationWalkEnabled = Settings.convertToBoolean(process.env.GOOGLE_MAPS_PAGINATION_WALK_ENABLED);
+        this.isPaginationWalkEnabled = strtobool(process.env.GOOGLE_MAPS_PAGINATION_WALK_ENABLED);
     }
 
     public static getInstance(): GoogleMapsSettings {

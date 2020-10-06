@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { ProxySettings, RabbitSettings } from "../utils/types";
 import { LaunchOptions } from "puppeteer";
+import strtobool from "../utils/strtobool";
 
 export class Settings {
     protected static instance: Settings;
@@ -23,7 +24,7 @@ export class Settings {
     protected constructor() {
         Settings.loadDotEnv();
 
-        this.proxyEnabled = Settings.convertToBoolean(process.env.PROXY_ENABLED);
+        this.proxyEnabled = strtobool(process.env.PROXY_ENABLED);
 
         const [host, port] = process.env.PROXY ? process.env.PROXY.split(':') : ['', ''];
         const [username, password] = process.env.PROXY_AUTH ? process.env.PROXY_AUTH.split(':') : ['', ''];
@@ -38,23 +39,11 @@ export class Settings {
         };
 
         this.browserOptions = {
-            headless: !Settings.convertToBoolean(process.env.PUPPETEER_DEBUG)
+            headless: !strtobool(process.env.PUPPETEER_DEBUG)
         };
 
-        this.captchaSolverEnabled = Settings.convertToBoolean(process.env.CAPTCHA_SOLVER_ENABLED);
+        this.captchaSolverEnabled = strtobool(process.env.CAPTCHA_SOLVER_ENABLED);
         this.captchaSolverApiKey = process.env.CAPTCHA_SOLVER_API_KEY;
-    }
-
-    protected static convertToBoolean(variable: string | boolean | number | null | undefined) {
-        if (typeof variable === 'boolean') {
-            return variable;
-        } else if (typeof variable === 'string') {
-            return variable.toLowerCase().trim() === 'true';
-        } else if (typeof variable === 'number') {
-            return variable !== 0;
-        }
-
-        return false;
     }
 
     private static loadDotEnv() {

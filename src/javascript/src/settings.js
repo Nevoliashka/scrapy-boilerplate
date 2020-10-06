@@ -1,11 +1,11 @@
 /**
  * Settings file for JS scrapers
  */
-import * as dotenv from 'dotenv'
-import { strtobool } from './utils'
+import * as dotenv from 'dotenv';
+import strtobool from "./utils/strtobool";
 
 
-dotenv.config()
+dotenv.config();
 
 export default {
   /**
