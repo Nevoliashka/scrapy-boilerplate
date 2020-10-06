@@ -3,7 +3,7 @@
  * @param {number} minutes
  * @returns {number}
  */
-import { millisecond } from "../types";
+import { millisecond } from "./types";
 
 export default function minToMsec(minutes: number): millisecond {
     return minutes * 60 * 1000;

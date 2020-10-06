@@ -1,4 +1,4 @@
-import { millisecond } from "../types";
+import { millisecond } from "./types";
 
 export default async function pauseFor(timeout: millisecond): Promise<void> {
     return new Promise((resolve, reject) => {

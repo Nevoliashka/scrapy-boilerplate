@@ -1,6 +1,6 @@
 import rp from 'request-promise-native';
 import { logger } from '../logging'
-import { millisecond } from "../types";
+import { millisecond } from "./types";
 
 
 export default class RuCaptchaClient {
