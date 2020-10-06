@@ -1,19 +1,18 @@
-import { Connection } from 'amqplib-as-promised';
-import { Channel, ConsumeMessage } from "amqplib";
-import { RabbitSettingsType } from "../types";
+import { Connection, Channel } from 'amqplib-as-promised';
+import { MessageHandler } from "amqplib-as-promised/lib/channel";
+import { RabbitSettings } from "../utils/types";
 
 export class RabbitConnector {
-    private host: string;
-    private port: string | number;
-    private username: string;
-    private password: string;
-    private vhost: string;
-
+    private readonly host: string;
+    private readonly port: string | number;
+    private readonly username: string;
+    private readonly password: string;
+    private readonly vhost: string;
     private connection: Connection | null;
     private channel: Channel | null;
 
-    constructor(
-        private rabbitSettings: RabbitSettingsType,
+    public constructor(
+        private rabbitSettings: RabbitSettings,
         private queueName: string
     ) {
         this.host = rabbitSettings.host;
@@ -25,57 +24,45 @@ export class RabbitConnector {
         this.channel = null;
     }
 
-    private async connect(): Promise<[Connection, Channel]> {
-        console.log(this.getConnectionURI());
-        const connection = new Connection(this.getConnectionURI());
-        await connection.init();
-        const channel = await connection.createChannel();
-        await channel.prefetch(1);
-        await channel.assertQueue(this.queueName, { durable: true });
-        // @ts-ignore TODO:
-        return [connection, channel];
-    }
-
-    private getConnectionURI(): string {
-        return `amqp://${this.username}:${this.password}@${this.host}:${this.port}${encodeURIComponent(this.vhost)}`
-    }
-
-    public async consume(callback: (msg: ConsumeMessage | null) => any): Promise<void> {
-        [this.connection, this.channel] = await this.connect();
-        await this.channel.consume(this.queueName, callback);
-        await this.close();
-    }
-
     public async publish(text: string) {
-        if (this.connection !== null && this.channel !== null) {
-            [this.connection, this.channel] = await this.connect();
-        }
-
-        await this.channel!.sendToQueue(this.queueName, Buffer.from(text));
+        const channel = await this.getChannel();
+        await channel.sendToQueue(this.queueName, Buffer.from(text));
     }
 
-    private static parseJSON(msg: ConsumeMessage): object {
-        const messageString: Buffer = msg.content;
-        let messageObject: object;
-
-        if (messageString.length) {
-            messageObject = JSON.parse(messageString.toString());
-        } else {
-            messageObject = {};
-        }
-
-        return messageObject;
+    public async consume(callback: (msg: MessageHandler | null) => any): Promise<void> {
+        const channel = await this.getChannel();
+        await channel.consume(this.queueName, callback);
+        await this.close();
     }
 
     public async close() {
         if (this.channel !== null) {
             await this.channel.close();
+            this.channel = null;
         }
         if (this.connection !== null) {
             await this.connection.close();
+            this.connection = null;
         }
+    }
 
-        this.channel = null;
-        this.connection = null;
+    private async connect(): Promise<void> {
+        console.log(this.getConnectionURI());
+        this.connection = new Connection(this.getConnectionURI());
+        await this.connection.init();
+        this.channel = await this.connection.createChannel();
+        await this.channel.prefetch(1);
+        await this.channel.assertQueue(this.queueName, { durable: true });
+    }
+
+    private async getChannel(): Promise<Channel> {
+        if (!this.channel) {
+            await this.connect();
+        }
+        return this.channel!;
+    }
+
+    private getConnectionURI(): string {
+        return `amqp://${this.username}:${this.password}@${this.host}:${this.port}${encodeURIComponent(this.vhost)}`;
     }
 }
