@@ -13,4 +13,8 @@ export interface RabbitSettings {
     username: string,
     password: string,
     vhost: string,
+    // TODO: add to rabbit-connector
+    retryTimes?: number,
+    errorQueue?: string,
+    resultQueue?: number,
 }
