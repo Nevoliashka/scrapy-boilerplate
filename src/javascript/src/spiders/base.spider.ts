@@ -1,49 +1,61 @@
-import Apify from "apify";
-import { LaunchPuppeteerOptions } from "apify";
-import vanillaPuppeteer, { Browser, DirectNavigationOptions, NavigationOptions, Page, Response } from "puppeteer";
-import { addExtra, PuppeteerExtra } from "puppeteer-extra";
+import vanillaPuppeteer, { Browser, DirectNavigationOptions, Page, Request } from "puppeteer";
+import { addExtra } from "puppeteer-extra";
+import Apify, { LaunchPuppeteerOptions } from "apify";
 //@ts-ignore
 import PuppeteerExtraPluginBlockResources from "puppeteer-extra-plugin-block-resources";
 //@ts-ignore
 import PuppeteerExtraPluginClickAndWait from "puppeteer-extra-plugin-click-and-wait";
 import PuppeteerExtraPluginStealth from "puppeteer-extra-plugin-stealth";
-import { logger } from '../logging';
-import minToMsec from '../utils/time';
-import RuCaptchaClient from "../utils/ru-captcha-client";
+import { Settings } from "../settings";
 
-export default class PuppeteerSpider {
-    public static get spiderName(): string {
-        return 'puppeteer_spider';
+export abstract class BaseSpider {
+    public static spiderName: string = 'base';
+
+    protected browser: Browser | null;
+    protected page: Page | null;
+    protected settings: Settings;
+    protected blockedRequestList: Array<(request: Request) => boolean> = [];
+    protected allowedRequestList: Array<(request: Request) => boolean> = [];
+
+    protected constructor() {
+        this.settings = Settings.getInstance();
     }
 
-    /**
-     * Returns default navigation timeout in milliseconds.
-     *
-     * @returns {number}
-     */
-    static get default_navigation_timeout() {
-        return minToMsec(5)
+    public async run() {
+        try {
+            await this.launchBrowser();
+        } finally {
+            await this.closeBrowser();
+        }
+    };
+
+    protected async addRequestFilter(page: Page) {
+        await page.setRequestInterception(true);
+        page.on('request', async (request: Request) => {
+                if (this.allowedRequestList.some(func => func(request))) {
+                    await request.continue();
+                    return;
+                }
+
+                if (this.blockedRequestList.some(func => func(request))) {
+                    await request.abort();
+                    return;
+                }
+
+                await request.continue();
+            }
+        );
     }
 
-    private browser: Browser | null = null;
-    private page: Page | null = null;
-
-    constructor(
-        settings: Settings,
-        //ruCaptchaKey = null,
-        //proxySettings = null
-    ) {
-        this.settings = settings;
-        //this.start_url = 'https://example.org';
-        //this._ruCaptchaClient = new RuCaptchaClient(ruCaptchaKey);
-        //this.proxy = proxySettings;
+    protected async closeBrowser() {
+        // await this.page.close();
+        if (this.browser) {
+            await this.browser.close();
+        }
     }
 
     protected async launchBrowser() {
-        /**
-         * configure Puppeteer Extra browser and plugins
-         */
-        const puppeteerInstance: PuppeteerExtra = addExtra(vanillaPuppeteer);
+        const puppeteerInstance = addExtra(vanillaPuppeteer);
         puppeteerInstance
             .use(
                 PuppeteerExtraPluginStealth()
@@ -69,26 +81,24 @@ export default class PuppeteerSpider {
                         // 'xhr',
                     ])
                 })
-            )
-        ;
+            );
         const puppeteerArgs = [];
         let withProxy = this.proxy?.host && this.proxy?.port;
         if (withProxy) {
             puppeteerArgs.push(`--proxy-server=${this.proxy.host}:${this.proxy.port}`);
         }
-        /**
-         * @type {LaunchPuppeteerOptions}
-         */
-        const opt = {
+
+        const opt: LaunchPuppeteerOptions = {
             puppeteerModule: puppeteerInstance,
             headless: this.settings.puppeteer.headless,
             args: puppeteerArgs
         };
         this.browser = await Apify.launchPuppeteer(opt);
         this.page = await this.browser.newPage();
-
-        await this.page.setViewport(PuppeteerSpider.VIEWPORT_SETTINGS)
-        this.page.setDefaultNavigationTimeout(PuppeteerSpider.default_navigation_timeout)
+        await this.addRequestFilter(this.page);
+        // TODO: add from settings object
+        // await this.page.setViewport(PuppeteerSpider.VIEWPORT_SETTINGS)
+        // this.page.setDefaultNavigationTimeout(PuppeteerSpider.default_navigation_timeout)
 
         if (withProxy && this.proxy?.username && this.proxy?.password) {
             await this.page.authenticate(
@@ -100,21 +110,12 @@ export default class PuppeteerSpider {
         }
     };
 
-    public async run() {
-        try {
-            await this.launchBrowser();
-        } finally {
-            await this.closeBrowser();
-        }
-    };
-
-    protected async goWithRetries(url: string, options?: DirectNavigationOptions, maxRetries: number = 3): Promise<Response> {
+    protected async loadURL(page: Page, url: string, options: DirectNavigationOptions = {}, maxRetries = 3) {
         let pageLoadTries = 0;
-        let lastError = null;
+        let lastError: Error | null = null;
         while (pageLoadTries < maxRetries) {
             try {
-                const response: Response | null = await this.page.goto(url, options);
-                return response!;
+                return await page.goto(url, options);
             } catch (e) {
                 pageLoadTries += 1;
                 lastError = e;
@@ -122,12 +123,6 @@ export default class PuppeteerSpider {
         }
         throw lastError;
     }
-
-    protected async closeBrowser() {
-        // await this.page.close();
-        if (this.browser) {
-            await this.browser.close();
-        }
-    }
 }
 
+export default BaseSpider;
