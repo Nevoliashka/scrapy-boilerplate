@@ -48,6 +48,7 @@ export default class PuppeteerBrowserMaker {
 
         const browser = await puppeteer.launch(this.settings.browserOptions);
         const page = await browser.newPage();
+        page.setDefaultNavigationTimeout(this.settings.navigationTimeout);
         return { browser, page };
     }
 

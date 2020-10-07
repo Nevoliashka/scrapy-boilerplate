@@ -12,7 +12,9 @@ export abstract class Spider {
     protected blockedRequestList: Array<(request: Request) => boolean> = [];
     protected allowedRequestList: Array<(request: Request) => boolean> = [];
 
-    customSettings: SettingsProperties = {};
+    customSettings: SettingsProperties = {
+        navigationTimeout: 30000,
+    };
 
     protected constructor() {
         this.settings = Settings.getInstance();

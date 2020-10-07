@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { ProxySettings, RabbitSettings } from "../utils/types";
+import { millisecond, ProxySettings, RabbitSettings } from "../utils/types";
 import { LaunchOptions } from "puppeteer";
 import strtobool from "../utils/strtobool";
 import SettingsProperties from "../utils/interfaces/settings-properties";
@@ -16,6 +16,8 @@ export class Settings implements SettingsProperties {
 
     public readonly captchaSolverEnabled: boolean;
     public readonly captchaSolverApiKey?: string;
+
+    public readonly navigationTimeout: millisecond = 30000;
 
     public static getInstance(settingsProperties: SettingsProperties = {}): Settings {
         if (!this.instance) {

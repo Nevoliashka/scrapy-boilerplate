@@ -1,4 +1,4 @@
-import { ProxySettings, RabbitSettings } from "../types";
+import { millisecond, ProxySettings, RabbitSettings } from "../types";
 import { LaunchOptions } from "puppeteer";
 
 export default interface SettingsProperties {
@@ -11,4 +11,6 @@ export default interface SettingsProperties {
 
     captchaSolverEnabled?: boolean;
     captchaSolverApiKey?: string;
+
+    navigationTimeout?: millisecond,
 }
