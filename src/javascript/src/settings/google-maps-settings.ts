@@ -19,5 +19,3 @@ export class GoogleMapsSettings extends Settings {
         return Object.freeze(this.instance);
     }
 }
-
-export default GoogleMapsSettings;

@@ -1,1 +1,2 @@
-import PuppeteerSpider from './PuppeteerSpider';
+import Spider from "./spider";
+

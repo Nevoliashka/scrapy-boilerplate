@@ -7,7 +7,7 @@
     "start": "babel-node index.js --presets @babel/preset-env",
     "clean": "rm -rf build/* build/.env",
     "build": "tsc",
-    "fbuild": "tsc --watch",
+    "build-watch": "tsc --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "me",

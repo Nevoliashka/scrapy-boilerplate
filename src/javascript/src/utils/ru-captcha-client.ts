@@ -1,9 +1,13 @@
 import rp from 'request-promise-native';
-import { logger } from '../logging'
+import { levels, Logger } from './logger';
 import { millisecond } from "./types";
+import { Logger as LoggerInterface } from "winston";
+import pauseFor from "./pause";
 
 
 export default class RuCaptchaClient {
+    logger: LoggerInterface;
+
     static get RU_CAPTCHA_SEND_ENDPOINT(): string {
         return 'http://rucaptcha.com/in.php';
     }
@@ -23,15 +27,8 @@ export default class RuCaptchaClient {
     constructor(
         private apiKey: string
     ) {
+        this.logger = Logger.createLogger(this.constructor.name, levels.DEBUG);
         // pass
-    }
-
-    private async waitFor(time: millisecond): Promise<void> {
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                resolve();
-            }, time);
-        });
     }
 
     async getSolution(
@@ -66,7 +63,7 @@ export default class RuCaptchaClient {
 
         while (!captchaToken && (ticks < RuCaptchaClient.MAX_TICKS)) {
             ticks += 1;
-            await this.waitFor(RuCaptchaClient.TICK_PERIOD);
+            await pauseFor(RuCaptchaClient.TICK_PERIOD);
             try {
                 const ruCaptchaSolutionResponse = await rp.get({
                     uri: RuCaptchaClient.RU_CAPTCHA_CHECK_RES_ENDPOINT,
@@ -80,12 +77,12 @@ export default class RuCaptchaClient {
                         proxytype: proxyType,
                     },
                 });
-                logger.info("tick %s; ruCaptchaSolutionResponse: %s", ruCaptchaSolutionResponse);
+                this.logger.info("tick %s; ruCaptchaSolutionResponse: %s", ruCaptchaSolutionResponse);
                 if (parseInt(ruCaptchaSolutionResponse.status, 10) === 1) {
                     captchaToken = ruCaptchaSolutionResponse.request;
                 }
             } catch (e) {
-                logger.warn(e.toString());
+                this.logger.warn(e.toString());
             }
         }
         if (captchaToken) {

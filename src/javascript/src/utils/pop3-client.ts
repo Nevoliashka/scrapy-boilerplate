@@ -2,7 +2,8 @@
 import { Client } from 'yapople';
 
 import pauseFor from "./pause";
-import { logger } from '../logging';
+import { levels, Logger } from './logger';
+import { Logger as LoggerInterface } from "winston";
 
 interface Author {
     address: string,
@@ -24,12 +25,14 @@ interface Message {
 }
 
 export default class POP3Client {
+    logger: LoggerInterface;
+
     constructor(
         private email: string,
         private password: string,
         private pop_config: { host: string, port: string }
     ) {
-        //
+        this.logger = Logger.createLogger(this.constructor.name, levels.DEBUG);
     }
 
     public async getVerificationCode(startTS: number): Promise<string | null> {
@@ -44,7 +47,7 @@ export default class POP3Client {
                     return resolve(emailCode);
                 }
                 currentTS = new Date().getTime();
-                logger.info("Tick: %s", currentTS);
+                this.logger.info("Tick: %s", currentTS);
             }
             return reject(new Error("Task has been expired"));
         })
@@ -61,7 +64,7 @@ export default class POP3Client {
                 password: this.password
             });
 
-            logger.info('startTS: %s', startTS);
+            this.logger.info('startTS: %s', startTS);
             const threshold = 60 * 1000;
             // const threshold = 2 * 60 * 60 * 1000;
 
@@ -72,19 +75,19 @@ export default class POP3Client {
                         .reverse()
                         .slice(0, Math.min(cnt, 10));
 
-                    logger.info("messageNumbers %s", messageNumbers);
+                    this.logger.info("messageNumbers %s", messageNumbers);
                     client.retrieve(messageNumbers, (retrieveError: Error, messages: Array<Message>) => {
-                        logger.info("messageNumbers: %s", messages.length);
+                        this.logger.info("messageNumbers: %s", messages.length);
                         const emailCode = messages.reverse().reduce((code: any, message) => {
                             if (code !== null) {
                                 return code;
                             }
-                            logger.info("%s %s %s", message.date.getTime(), (startTS - threshold), message.date.getTime() >= (startTS - threshold));
+                            this.logger.info("%s %s %s", message.date.getTime(), (startTS - threshold), message.date.getTime() >= (startTS - threshold));
                             if (message.date.getTime() >= (startTS - threshold)) {
                                 const emailSenderPattern = 'verify@';
                                 const content: Array<Author> = Array.from(message.from);
                                 if (content.length && String(content.shift()!.address).includes(emailSenderPattern)) {
-                                    logger.info("%s msg to check", emailSenderPattern);
+                                   this.logger.info("%s msg to check", emailSenderPattern);
                                     const msgHTML: string = message.html;
                                     const emailCodeRegex = /<strong>([A-Za-z0-9]+)<\/strong><\/td>/gms;
                                     const emailCodeRegexList = [emailCodeRegex];

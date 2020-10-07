@@ -1,6 +1,7 @@
 import { Browser, Page, Request } from "puppeteer";
 import { Settings } from "../settings";
 import PuppeteerBrowserMaker from "../utils/puppeteer-browser-maker";
+import SettingsProperties from "../utils/interfaces/settings-properties";
 
 export abstract class Spider {
     public static spiderName: string = 'base';
@@ -10,6 +11,8 @@ export abstract class Spider {
     protected settings: Settings;
     protected blockedRequestList: Array<(request: Request) => boolean> = [];
     protected allowedRequestList: Array<(request: Request) => boolean> = [];
+
+    customSettings: SettingsProperties = {};
 
     protected constructor() {
         this.settings = Settings.getInstance();

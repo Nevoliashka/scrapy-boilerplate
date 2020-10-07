@@ -1,2 +1,2 @@
-export { GoogleMapsSettings }  from './google-maps-settings';
-export { Settings } from './settings';
+export { Settings } from "./settings";
+export { GoogleMapsSettings } from "./google-maps-settings";

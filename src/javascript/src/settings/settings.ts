@@ -2,23 +2,29 @@ import dotenv from 'dotenv';
 import { ProxySettings, RabbitSettings } from "../utils/types";
 import { LaunchOptions } from "puppeteer";
 import strtobool from "../utils/strtobool";
+import SettingsProperties from "../utils/interfaces/settings-properties";
 
-export class Settings {
+export class Settings implements SettingsProperties {
     protected static instance: Settings;
-    public proxyEnabled: boolean;
-    public proxy: ProxySettings;
-    public rabbit: RabbitSettings;
-    public browserOptions: LaunchOptions;
 
-    public captchaSolverEnabled: boolean;
-    public captchaSolverApiKey?: string;
+    public readonly proxyEnabled: boolean;
+    public readonly proxy: ProxySettings;
 
-    public static getInstance(): Settings {
+    public readonly rabbit: RabbitSettings;
+
+    public readonly browserOptions: LaunchOptions;
+
+    public readonly captchaSolverEnabled: boolean;
+    public readonly captchaSolverApiKey?: string;
+
+    public static getInstance(settingsProperties: SettingsProperties = {}): Settings {
         if (!this.instance) {
             this.instance = new this();
         }
 
-        return Object.freeze(this.instance);
+        // TODO: it is not check
+        Object.assign(this.instance, settingsProperties);
+        return this.instance;
     }
 
     protected constructor() {
@@ -49,7 +55,8 @@ export class Settings {
     private static loadDotEnv() {
         // This method update process.env properties
 
-        const pathToEnvFile = process.cwd().split('\\').slice(0, -2).join('\\') + '\\.env';
+        const pathToEnvFile = process.cwd().split('\\').slice(0, -4).join('\\') + '\\.env';
+        console.log(pathToEnvFile);
         const result = dotenv.config({ path: pathToEnvFile });
 
         if (result.error) {
@@ -57,6 +64,7 @@ export class Settings {
         }
 
         console.log('loadDotEnv');
+        // TODO: check 2 time read .env file (overhead)
         //this.loadDotEnv = () => undefined;
     }
 }
