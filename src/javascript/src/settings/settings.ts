@@ -19,6 +19,8 @@ export class Settings implements SettingsProperties {
 
     public readonly navigationTimeout: millisecond = 30000;
 
+    public readonly pipelines: Array<object> = [];
+
     public static getInstance(settingsProperties: SettingsProperties = {}): Settings {
         if (!this.instance) {
             this.instance = new this();

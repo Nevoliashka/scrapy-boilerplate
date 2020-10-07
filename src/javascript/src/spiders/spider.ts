@@ -2,13 +2,16 @@ import { Browser, Page, Request } from "puppeteer";
 import { Settings } from "../settings";
 import PuppeteerBrowserMaker from "../utils/puppeteer-browser-maker";
 import SettingsProperties from "../utils/interfaces/settings-properties";
+import { levels, Logger } from "../utils/logger";
+import { Logger as LoggerInterface } from "winston";
 
 export abstract class Spider {
     public static spiderName: string = 'base';
 
+    public settings: Settings;
+    public logger: LoggerInterface;
     protected browser: Browser | null = null;
     protected page: Page | null = null;
-    protected settings: Settings;
     protected blockedRequestList: Array<(request: Request) => boolean> = [];
     protected allowedRequestList: Array<(request: Request) => boolean> = [];
 
@@ -18,23 +21,24 @@ export abstract class Spider {
 
     protected constructor() {
         this.settings = Settings.getInstance();
+        this.logger = Logger.createLogger(this.constructor.name, levels.DEBUG);
     }
 
     abstract convertArgsToInputMessage(args: unknown): object;
 
+    //@ts-ignore
+    abstract async* process(inputMessage: object): AsyncGenerator<number, never, void>;
+
     public async run(args: unknown) {
         try {
             await this.launchBrowser();
-            await this.process(this.convertArgsToInputMessage(args));
+            for await (const item of this.process(this.convertArgsToInputMessage(args))) {
+
+            }
         } finally {
             await this.closeBrowser();
         }
     };
-
-    protected async process(inputMessage: object): Promise<object> {
-        // TODO: yield item, process item in pipeline
-        return {};
-    }
 
     protected async addRequestFilter(page: Page) {
         await page.setRequestInterception(true);

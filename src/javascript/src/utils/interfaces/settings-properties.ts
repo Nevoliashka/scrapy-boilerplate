@@ -13,4 +13,6 @@ export default interface SettingsProperties {
     captchaSolverApiKey?: string;
 
     navigationTimeout?: millisecond,
+
+    pipelines?: Array<object>
 }
