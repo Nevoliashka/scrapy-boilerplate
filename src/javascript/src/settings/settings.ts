@@ -3,8 +3,9 @@ import { millisecond, ProxySettings, RabbitSettings } from "../utils/types";
 import { LaunchOptions } from "puppeteer";
 import strtobool from "../utils/strtobool";
 import SettingsProperties from "../utils/interfaces/settings-properties";
+import GoogleMapsSettings from "../utils/interfaces/google-maps-settings";
 
-export class Settings implements SettingsProperties {
+export class Settings implements SettingsProperties, GoogleMapsSettings {
     protected static instance: Settings;
 
     public readonly proxyEnabled: boolean;
@@ -18,6 +19,8 @@ export class Settings implements SettingsProperties {
     public readonly captchaSolverApiKey?: string;
 
     public readonly navigationTimeout: millisecond = 30000;
+
+    public readonly paginationWalkEnabled: boolean;
 
     public readonly pipelines: Array<object> = [];
 
@@ -54,6 +57,8 @@ export class Settings implements SettingsProperties {
 
         this.captchaSolverEnabled = strtobool(process.env.CAPTCHA_SOLVER_ENABLED);
         this.captchaSolverApiKey = process.env.CAPTCHA_SOLVER_API_KEY;
+
+        this.paginationWalkEnabled = strtobool(process.env.PAGINATION_WALK_ENABLED)
     }
 
     private static loadDotEnv() {
