@@ -5,9 +5,11 @@ from typing import List
 
 import pika
 from pika.exceptions import ChannelWrongStateError, ConnectionWrongStateError
-from twisted.internet import reactor, threads
+from pika.exchange_type import ExchangeType
+from twisted.internet import reactor, defer
 
 from rmq.utils.decorators import log_current_thread
+from rmq.utils.routing import routing_config
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +172,8 @@ class PikaSelectConnection:
             self.on_basic_get_empty, [pika.spec.Basic.GetEmpty], one_shot=False
         )
         self.__ignore_ack_after = None
-        self.setup_queue(self.queue_name)
+        # self.setup_queue(self.queue_name)
+        reactor.callFromThread(self.setup_routing, routing_config)
 
     def on_channel_closed(self, channel, reason):
         logger.warning("Channel {} was closed: {}".format(channel, reason))
@@ -182,22 +185,81 @@ class PikaSelectConnection:
             self.__owner_update_can_interact_value()
             self._init_graceful_shutdown()
 
-    def setup_queue(self, queue_name):
+    def setup_routing(self, routing_config):
+        exchanges_list = []
+        for exchange_name, exchange_args in routing_config.items():
+            d = self.setup_exchange(exchange_name, exchange_args)
+            exchanges_list.append(d)
+        deferred_list = defer.DeferredList(exchanges_list)
+        deferred_list.addCallback(self.set_qos)
+
+    def setup_exchange(self, exchange_name, exchange_args):
+        logger.info(f"Declaring exchange {exchange_name}")
+        d = defer.Deferred()
+        self._channel.exchange_declare(
+            exchange=exchange_name,
+            exchange_type=exchange_args.get("type", ExchangeType.direct),
+            passive=exchange_args.get("passive", False),
+            durable=exchange_args.get("durable", True),
+            auto_delete=exchange_args.get("auto_delete", False),
+            internal=exchange_args.get("internal", False),
+            arguments=exchange_args.get("arguments", None),
+        )
+        d.addCallback(self.on_exchange_declare_ok, exchange_name, exchange_args)
+        d.callback(None)
+        return d
+
+    def on_exchange_declare_ok(self, _result, exchange_name, exchange_args):
+        logger.info("Exchange declared")
+        exchange_queues = exchange_args["queues"]
+        queues_list = []
+        for queue_name, queue_args in exchange_queues.items():
+            d = self.setup_queue(queue_name, queue_args)
+            d.addCallback(self.bind_queue, exchange_name, queue_name, queue_args)
+            queues_list.append(d)
+        deferred_list = defer.DeferredList(queues_list)
+        return deferred_list
+
+    def on_exchange_declare_failure(self, failure, exchange_name):
+        logger.critical(f"Cannot declare exchange {exchange_name}")
+        logger.critical(repr(failure))
+        self.stop()
+
+    def setup_queue(self, queue_name, queue_args):
         """If queue require some specific properties at declaration subclass of this class should be created and
         this method should be overridden"""
         logger.info("Declaring queue {}".format(queue_name))
+        d = defer.Deferred()
         self._channel.queue_declare(
-            queue=queue_name, callback=self.on_queue_declare_ok, durable=True
+            queue=queue_name,
+            durable=queue_args.get("durable", True),
+            passive=queue_args.get("passive", False),
+            exclusive=queue_args.get("exclusive", False),
+            auto_delete=queue_args.get("auto_delete", False),
+            arguments=queue_args.get("arguments"),
+            callback=self.on_queue_declare_ok
         )
+        d.callback(None)
+        return d
+
+    def bind_queue(self, _result, exchange_name, queue_name, queue_args):
+        d = defer.Deferred()
+        self._channel.queue_bind(
+            queue_name,
+            exchange_name,
+            routing_key=queue_args.get("routing_key", "default"),
+            arguments=queue_args.get("bind_arguments", None)
+        )
+        d.callback(None)
+        return d
 
     def on_queue_declare_ok(self, _unused_frame):
         logger.info("Queue declared")
-        self.set_qos()
 
-    def set_qos(self):
+    def set_qos(self, _result):
         self._channel.basic_qos(
             prefetch_count=self.options["prefetch_count"]
-            or self._DEFAULT_OPTIONS["prefetch_count"],
+                           or self._DEFAULT_OPTIONS["prefetch_count"],
             callback=self.start_interacting,
         )
 
@@ -288,28 +350,29 @@ class PikaSelectConnection:
             callback(message_count=message_count)
 
     def publish_message(
-        self, message, queue_name: str = None, properties: pika.BasicProperties = None
+        self,
+        message,
+        exchange: str = "",
+        routing_key: str = None,
+        properties: pika.BasicProperties = None,
+        mandatory=False
     ):
         if self._channel is None or not self._channel.is_open:
             return
-        if queue_name is None:
-            queue_name = self.queue_name
         if properties is None:
             properties = pika.BasicProperties(content_type="application/json", delivery_mode=2)
-
-        if queue_name == self.queue_name:
-            self._channel.basic_publish("", queue_name, message, properties)
-            self._message_number += 1
-            self._deliveries.append(self._message_number)
-            logger.debug("Published message # {}".format(self._message_number))
-        else:
-            cb = functools.partial(
-                self.publish_to_ensured_queue,
-                message=message,
-                queue_name=queue_name,
-                properties=properties,
-            )
-            self._channel.queue_declare(queue=queue_name, callback=cb, durable=True)
+        self._channel.basic_publish(exchange, routing_key, message, properties, mandatory=mandatory)
+        self._message_number += 1
+        self._deliveries.append(self._message_number)
+        logger.debug("Published message # {}".format(self._message_number))
+        # else:
+        #     cb = functools.partial(
+        #         self.publish_to_ensured_queue,
+        #         message=message,
+        #         queue_name=queue_name,
+        #         properties=properties,
+        #     )
+        #     self._channel.queue_declare(queue=queue_name, callback=cb, durable=True)
 
     def publish_to_ensured_queue(self, _unused_frame, message, queue_name, properties):
         self._channel.basic_publish("", queue_name, message, properties)

@@ -1,0 +1,7 @@
+default:
+  type: direct
+  queues:
+    test:
+      durable: true
+    test1:
+      durable: true
