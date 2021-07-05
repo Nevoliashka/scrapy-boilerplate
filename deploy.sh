@@ -12,17 +12,17 @@ cd "$1/releases/$2"
 
 # remove redundant files and dirs
 rm -rf .git
-rm -rf src/python/src/logs
+rm -rf src/pm2/logs
 
-# create symlinks for .env files and logs dir
+# create symlinks for .env file
 # general .env
 ln -s "$1/.env" .env
-# python required (comment if redundant)
-ln -s "$1/.env" src/python/src/.env
-ln -s "$1/logs" src/python/src
-# typescript required (comment if redundant)
-ln -s "$1/.env" src/typescript/src/.env
-ln -s "$1/logs" src/typescript/src
+
+# create symlinks for logs dir
+ln -s "$1/logs" src/pm2/logs
+
+# create symlinks for pm2.config.js
+ln -s "$1/pm2.config.js" src/pm2/pm2.config.js
 
 # install dependencies
 # python
@@ -42,14 +42,15 @@ ln -s "$release_dir" "$latest_release_dir"
 pm2 stop "/$3_/" && pm2 delete "/$3_/"
 
 # run pm2 processes
-# python (comment if redundant)
-cd "$release_dir/src/python/src"
+cd src/pm2/
 pm2 start pm2.config.js
 pm2 save
-# typescript (comment if redundant)
-cd "$release_dir/src/typescript/src"
-pm2 start pm2.config.js
-pm2 save
+
+# remove old node_modules and venv dirs(comment if redundant)
+cd "$latest_release_dir/src/typescript/src"
+rm -rf node_modules
+cd "$latest_release_dir/src/python/src"
+rm -rf .venv
 
 # cleanup (remove old releases)
 cd "$1/releases"
